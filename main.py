@@ -1,37 +1,58 @@
+from flask import Flask, request, render_template_string
 import requests
 
-def get_weather(city, latitude, longitude):
-    # Open-Meteo API endpoint
+app = Flask(__name__)
+
+# HTML template
+html = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather Now App</title>
+</head>
+<body>
+    <h5>   ===> Weather Now App 🌤️ <===   </h5>
+    <form method="post">
+        Enter City: <input type="text" name="city">
+        <button type="submit">Get Weather</button>
+    </form>
+
+    {% if weather %}
+        <h3>Weather in {{ city }}</h3>
+        <p>Temperature: {{ weather['temperature'] }} °C</p>
+        <p>Windspeed: {{ weather['windspeed'] }} km/h</p>
+        <p>Weather Code: {{ weather['weathercode'] }}</p>
+        <p>Time: {{ weather['time'] }}</p>
+    {% endif %}
+</body>
+</html>
+"""
+
+def get_weather(lat, lon):
     url = "https://api.open-meteo.com/v1/forecast"
+    params = {"latitude": lat, "longitude": lon, "current_weather": True}
+    response = requests.get(url, params=params)
+    return response.json().get("current_weather", None)
 
-    # Parameters for the API call
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "current_weather": True
-    }
+# Example city coordinates
+city_coords = {
+    "Hyderabad": (17.385044, 78.486671),
+    "Delhi": (28.7041, 77.1025),
+    "Mumbai": (19.0760, 72.8777)
+}
 
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()  # Raise error for bad response
+@app.route("/", methods=["GET", "POST"])
+def index():
+    weather = None
+    city = None
+    if request.method == "POST":
+        city = request.form["city"]
+        if city in city_coords:
+            lat, lon = city_coords[city]
+            weather = get_weather(lat, lon)
+    return render_template_string(html, weather=weather, city=city)
 
-        data = response.json()
-        if "current_weather" in data:
-            weather = data["current_weather"]
-            print(f"Weather in {city}:")
-            print(f"Temperature: {weather['temperature']}°C")
-            print(f"Windspeed: {weather['windspeed']} km/h")
-            print(f"Weather Code: {weather['weathercode']}")
-            print(f"Time: {weather['time']}")
-        else:
-            print("No current weather data available.")
-    except Exception as e:
-        print("Error fetching weather:", e)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080, debug=True)
 
 
-# Example city with coordinates (Hyderabad)
-city = "Hyderabad"
-latitude = 17.385044
-longitude = 78.486671
-
-get_weather(city, latitude, longitude)
